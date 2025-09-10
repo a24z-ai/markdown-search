@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/a24z-ai/alexandria/main/schema/alexandriarc.json",
+  "version": "1.0.0",
+  "context": {
+    "useGitignore": true,
+    "patterns": {
+      "exclude": [
+        ".alexandria/**"
+      ]
+    }
+  },
+  "codebaseViews": [
+    {
+      "name": "documentation",
+      "description": "Project documentation and guides",
+      "patterns": {
+        "include": [
+          "README.md",
+          "AGENTS.md",
+          "docs/**/*.md"
+        ]
+      }
+    }
+  ]
+}
