@@ -38,7 +38,7 @@ coverage/
 .nuxt/
 
 # Alexandria specific
-.alexandria/
+.alexandria/lancedb
 .search-index/
 
 # Package manager files
