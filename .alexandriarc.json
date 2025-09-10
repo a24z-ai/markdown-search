@@ -4,22 +4,38 @@
   "context": {
     "useGitignore": true,
     "patterns": {
-      "exclude": [
-        ".alexandria/**"
-      ]
-    }
-  },
-  "codebaseViews": [
-    {
-      "name": "documentation",
-      "description": "Project documentation and guides",
-      "patterns": {
-        "include": [
-          "README.md",
-          "AGENTS.md",
-          "docs/**/*.md"
-        ]
+      "exclude": [".alexandria/**"]
+    },
+    "rules": [
+      {
+        "id": "require-view-association",
+        "name": "Require View Association",
+        "severity": "warning",
+        "enabled": true
+      },
+      {
+        "id": "orphaned-references",
+        "name": "Orphaned References",
+        "severity": "error",
+        "enabled": true
+      },
+      {
+        "id": "stale-context",
+        "name": "Stale Context",
+        "severity": "info",
+        "enabled": false
+      },
+      {
+        "id": "document-organization",
+        "name": "Document Organization",
+        "severity": "warning",
+        "enabled": true,
+        "options": {
+          "documentFolders": ["docs", "documentation"],
+          "rootExceptions": ["README.md", "LICENSE.md", "CONTRIBUTING.md", "AGENTS.md"],
+          "checkNested": true
+        }
       }
-    }
-  ]
+    ]
+  }
 }
