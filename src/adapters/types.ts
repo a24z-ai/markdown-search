@@ -1,48 +1,5 @@
 import { SearchableDocument, SearchResult, SearchOptions } from '../types';
 
-/**
- * File system adapter interface for accessing markdown files across platforms
- */
-export interface FileInfo {
-  path: string;
-  name: string;
-  size: number;
-  modifiedAt: Date;
-  uri?: string; // Platform-specific URI
-}
-
-export interface FindOptions {
-  include?: string[];
-  exclude?: string[];
-  maxDepth?: number;
-  followSymlinks?: boolean;
-}
-
-export interface FileWatchEvent {
-  type: 'created' | 'changed' | 'deleted';
-  path: string;
-}
-
-export type FileWatchCallback = (event: FileWatchEvent) => void;
-
-export interface Disposable {
-  dispose(): void;
-}
-
-export interface SearchFileSystemAdapter {
-  /**
-   * Find all markdown files in the workspace
-   *
-   * IMPORTANT: Implementations should use mergeExclusions() from '../constants'
-   * to ensure consistent default exclusions across all platforms
-   */
-  findMarkdownFiles(options?: FindOptions): Promise<FileInfo[]>;
-  readFile(path: string): Promise<string>;
-  watchFiles?(pattern: string, callback: FileWatchCallback): Disposable;
-  getRelativePath(path: string): string;
-  getFileInfo(path: string): Promise<FileInfo>;
-}
-
 // Search Engine Specific
 export interface SearchEngineAdapter {
   initialize(options?: SearchEngineOptions): Promise<void>;
@@ -58,7 +15,7 @@ export interface SearchEngineAdapter {
 // Configuration for the search engine
 export interface SearchEngineConfig {
   storage: SearchStorageAdapter;
-  fileSystem: SearchFileSystemAdapter;
+  markdownProvider: import('../MarkdownFileProvider').MarkdownFileProvider;
   searchEngine?: SearchEngineAdapter;
 }
 
@@ -98,8 +55,8 @@ export interface IndexingOptions {
   // Index individual chunks/blocks within documents
   indexChunks?: boolean;
 
-  // File filtering
-  fileOptions?: FindOptions;
+  // File filtering (uses MarkdownFileProvider's FindOptions)
+  fileOptions?: import('../MarkdownFileProvider').FindOptions;
 
   // Performance options
   batchSize?: number;

@@ -8,7 +8,8 @@ import {
   CHUNK_TYPES,
 } from '@a24z/markdown-utils';
 
-import { type FileInfo, type IndexingOptions } from './adapters/types';
+import { type IndexingOptions } from './adapters/types';
+import { type MarkdownFile } from './MarkdownFileProvider';
 import {
   SearchableDocument,
   DocumentMetadata,
@@ -44,7 +45,7 @@ export class DocumentIndexer {
    */
   createSearchDocuments(
     document: MarkdownDocument,
-    fileInfo: FileInfo,
+    fileInfo: MarkdownFile,
     options?: IndexingOptions,
   ): SearchableDocument[] {
     const documents: SearchableDocument[] = [];
@@ -118,7 +119,7 @@ export class DocumentIndexer {
    */
   async parseAndIndex(
     content: string,
-    fileInfo: FileInfo,
+    fileInfo: MarkdownFile,
     options?: IndexingOptions,
   ): Promise<SearchableDocument[]> {
     // Use the presentation parser and adapt it to our document structure
@@ -202,7 +203,7 @@ export class DocumentIndexer {
     block: ContentBlock | any,
     blockIndex: number,
     parentSectionDoc: SearchableDocument,
-    fileInfo: FileInfo,
+    fileInfo: MarkdownFile,
   ): SearchableDocument | null {
     // Determine block type and extract content
     let blockType: DocumentType;

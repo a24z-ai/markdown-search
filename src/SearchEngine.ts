@@ -2,7 +2,7 @@
  * SearchEngine - Main search engine implementation for markdown documents
  */
 
-import { SearchStorageAdapter, SearchFileSystemAdapter, SearchEngineAdapter } from './adapters';
+import { SearchStorageAdapter, SearchEngineAdapter } from './adapters';
 import {
   IndexingOptions,
   IndexResult,
@@ -10,6 +10,7 @@ import {
   SearchEngineConfig,
   SearchIndexStats,
 } from './adapters/types';
+import { MarkdownFileProvider } from './MarkdownFileProvider';
 import { SearchEngineFactory } from './SearchEngineFactory';
 import { DocumentIndexer } from './DocumentIndexer';
 import { type SearchableDocument, type SearchResult, type SearchOptions } from './types';
@@ -18,12 +19,12 @@ export class SearchEngine {
   private indexer: DocumentIndexer;
   private searchEngine: SearchEngineAdapter;
   private storage: SearchStorageAdapter;
-  private fileSystem: SearchFileSystemAdapter;
+  private markdownProvider: MarkdownFileProvider;
   private indexKey: string;
 
   constructor(config: SearchEngineConfig, indexKey: string = 'search-index') {
     this.storage = config.storage;
-    this.fileSystem = config.fileSystem;
+    this.markdownProvider = config.markdownProvider;
     this.searchEngine = config.searchEngine || SearchEngineFactory.create('flexsearch');
     this.indexer = new DocumentIndexer();
     this.indexKey = indexKey;
@@ -78,7 +79,7 @@ export class SearchEngine {
       }
 
       // Find all markdown files
-      const files = await this.fileSystem.findMarkdownFiles(options?.fileOptions);
+      const files = await this.markdownProvider.findMarkdownFiles(options?.fileOptions);
       const totalFiles = files.length;
       console.log('Total files:', totalFiles);
 
@@ -135,7 +136,7 @@ export class SearchEngine {
             }
             console.log('Reading file content...');
             // Read file content
-            const content = await this.fileSystem.readFile(file.path);
+            const content = await this.markdownProvider.readMarkdownFile(file.path);
             console.log('File content:', content);
             // Parse and create search documents
             const documents = await this.indexer.parseAndIndex(content, file, options);
@@ -295,7 +296,7 @@ export class SearchEngine {
       for (const filePath of filePaths) {
         try {
           // Get file info
-          const fileInfo = await this.fileSystem.getFileInfo(filePath);
+          const fileInfo = await this.markdownProvider.getFileInfo(filePath);
 
           // Remove old documents for this file
           const fileUri = fileInfo.uri || fileInfo.path;
@@ -316,7 +317,7 @@ export class SearchEngine {
           }
 
           // Read and index the file
-          const content = await this.fileSystem.readFile(filePath);
+          const content = await this.markdownProvider.readMarkdownFile(filePath);
           const documents = await this.indexer.parseAndIndex(content, fileInfo, options);
 
           // Add new documents

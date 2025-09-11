@@ -26,14 +26,6 @@ export type {
 
 // Adapter exports
 export type {
-  // File system
-  FileInfo,
-  FindOptions,
-  FileWatchEvent,
-  FileWatchCallback,
-  Disposable,
-  SearchFileSystemAdapter,
-  
   // Storage
   SearchStorageAdapter,
   SerializedIndexData,
@@ -53,9 +45,17 @@ export type {
   SearchIndexStats,
 } from './adapters/types';
 
+// MarkdownFileProvider interface - users implement this for their environment
+export type {
+  MarkdownFileProvider,
+  MarkdownFile,
+  FindOptions,
+  FileChange,
+  Disposable,
+} from './MarkdownFileProvider';
+
 // Adapter interfaces (types only)
 export type {
-  FileSystemAdapter,
   StorageAdapter,
   SearchEngineAdapterBase,
   SearchPlatformAdapter,
@@ -64,46 +64,17 @@ export type {
 // Constants
 export { DEFAULT_FILE_EXCLUSIONS, mergeExclusions } from './adapters';
 
-// Implementation exports
+// Implementation exports - only search engine and storage adapters
 export {
   // Search engines
   FlexSearchAdapter,
   
-  // Node.js/Bun adapters
-  NodeFileSystemAdapter,
+  // Node.js/Bun storage adapter
   NodeStorageAdapter,
-  
-  // VSCode adapters (for extension compatibility)
-  VSCodeFileSystemAdapter,
-  VSCodeStorageAdapter,
 } from './adapters/implementations';
 
 // Utilities
 export * from './utils';
 
-// Factory method for quick setup
-export function createSearchEngine(options?: {
-  rootPath?: string;
-  storagePath?: string;
-  indexKey?: string;
-}) {
-  const { 
-    rootPath = process.cwd(), 
-    storagePath = '.search-index',
-    indexKey = 'search-index' 
-  } = options || {};
-  
-  // Import needed implementations
-  const { NodeFileSystemAdapter, NodeStorageAdapter } = require('./adapters/implementations');
-  const { SearchEngine } = require('./SearchEngine');
-  const { SearchEngineFactory } = require('./SearchEngineFactory');
-  
-  return new SearchEngine({
-    fileSystem: new NodeFileSystemAdapter(rootPath),
-    storage: new NodeStorageAdapter(storagePath),
-    searchEngine: SearchEngineFactory.create('flexsearch'),
-  }, indexKey);
-}
-
 // Version
-export const VERSION = '1.0.0';
+export const VERSION = '2.0.0';
