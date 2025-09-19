@@ -2,19 +2,12 @@
  * DocumentIndexer - Converts parsed markdown documents into searchable documents
  */
 
-// Import from @a24z/markdown-utils package  
-import {
-  parseMarkdownIntoPresentation,
-  CHUNK_TYPES,
-} from '@a24z/markdown-utils';
+// Import from @a24z/markdown-utils package
+import { parseMarkdownIntoPresentation, CHUNK_TYPES } from '@a24z/markdown-utils';
 
 import { type IndexingOptions } from './adapters/types';
 import { type MarkdownFile } from './MarkdownFileProvider';
-import {
-  SearchableDocument,
-  DocumentMetadata,
-  DocumentType,
-} from './types';
+import { SearchableDocument, DocumentMetadata, DocumentType } from './types';
 
 // Define our own document structure since @a24z/markdown-utils uses presentations
 interface MarkdownDocument {
@@ -67,7 +60,7 @@ export class DocumentIndexer {
       contentHash: this.generateContentHash(document.content),
       indexedAt: new Date().toISOString(),
     };
-    
+
     documents.push(mainDoc);
 
     // Index individual sections
@@ -89,10 +82,12 @@ export class DocumentIndexer {
         sectionNumber: sectionIndex + 1,
         sectionLevel: section.level,
         totalSectionsInFile: document.sections?.length || 0,
-        previousSectionTitle: sectionIndex > 0 ? document.sections?.[sectionIndex - 1]?.title : undefined,
-        nextSectionTitle: sectionIndex < (document.sections?.length || 0) - 1 
-          ? document.sections?.[sectionIndex + 1]?.title 
-          : undefined,
+        previousSectionTitle:
+          sectionIndex > 0 ? document.sections?.[sectionIndex - 1]?.title : undefined,
+        nextSectionTitle:
+          sectionIndex < (document.sections?.length || 0) - 1
+            ? document.sections?.[sectionIndex + 1]?.title
+            : undefined,
         metadata: this.analyzeSectionContent(section),
         contentHash: this.generateContentHash(section.content),
         indexedAt: new Date().toISOString(),
@@ -124,7 +119,7 @@ export class DocumentIndexer {
   ): Promise<SearchableDocument[]> {
     // Use the presentation parser and adapt it to our document structure
     const presentation = parseMarkdownIntoPresentation(content);
-    
+
     // Convert presentation to document structure
     const document: MarkdownDocument = {
       content: content,
@@ -138,8 +133,16 @@ export class DocumentIndexer {
         blocks: slide.chunks,
       })),
     };
-    
-    return this.createSearchDocuments(document, fileInfo, options);
+
+    // Clear the presentation object to free memory
+    presentation.slides = [];
+
+    const documents = this.createSearchDocuments(document, fileInfo, options);
+
+    // Clear document sections to free memory after creating search documents
+    document.sections = [];
+
+    return documents;
   }
 
   /**

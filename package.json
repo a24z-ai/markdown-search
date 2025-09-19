@@ -1,6 +1,6 @@
 {
   "name": "@a24z/markdown-search",
-  "version": "2.0.0",
+  "version": "2.0.5",
   "description": "High-performance full-text search for markdown documents",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -29,10 +29,14 @@
     "build:copy-package-files": "echo '{\"type\":\"module\"}' > dist/esm/package.json && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
     "dev": "bun --watch src/index.ts",
     "test": "bun test",
+    "test:large": "node test-large-indexing.js",
+    "test:large:gc": "node --expose-gc test-large-indexing.js",
+    "test:large:heap": "node --max-old-space-size=4096 --expose-gc test-large-indexing.js",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "prepublishOnly": "bun run build",
-    "prepare": "husky"
+    "prepublishOnly": "bun run build"
   },
   "keywords": [
     "markdown",
@@ -51,6 +55,11 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.44.0",
+    "@typescript-eslint/parser": "^8.44.0",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
     "husky": "^9.1.7",
     "prettier": "^3.6.2",
     "typescript": "^5.0.4"

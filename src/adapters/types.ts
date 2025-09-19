@@ -10,6 +10,7 @@ export interface SearchEngineAdapter {
   importIndex(data: SerializedIndexData): Promise<void>;
   clear(): Promise<void>;
   startNewIndexingSession?(): void;
+  getAllDocuments?(): Promise<SearchResult[]>;
 }
 
 // Configuration for the search engine

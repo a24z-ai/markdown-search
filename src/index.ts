@@ -16,7 +16,7 @@ export type {
   DocumentChunk,
   ChunkType,
   MetadataValue,
-  
+
   // Search types
   SearchResult,
   SearchOptions,
@@ -30,12 +30,12 @@ export type {
   SearchStorageAdapter,
   SerializedIndexData,
   IndexMetadata,
-  
+
   // Search engine
   SearchEngineAdapter,
   SearchEngineConfig,
   SearchEngineOptions,
-  
+
   // Indexing
   IndexingOptions,
   IndexingPhase,
@@ -55,11 +55,7 @@ export type {
 } from './MarkdownFileProvider';
 
 // Adapter interfaces (types only)
-export type {
-  StorageAdapter,
-  SearchEngineAdapterBase,
-  SearchPlatformAdapter,
-} from './adapters';
+export type { StorageAdapter, SearchEngineAdapterBase, SearchPlatformAdapter } from './adapters';
 
 // Constants
 export { DEFAULT_FILE_EXCLUSIONS, mergeExclusions } from './adapters';
@@ -68,7 +64,7 @@ export { DEFAULT_FILE_EXCLUSIONS, mergeExclusions } from './adapters';
 export {
   // Search engines
   FlexSearchAdapter,
-  
+
   // Node.js/Bun storage adapter
   NodeStorageAdapter,
 } from './adapters/implementations';
@@ -77,4 +73,4 @@ export {
 export * from './utils';
 
 // Version
-export const VERSION = '2.0.0';
+export const VERSION = '2.0.5';

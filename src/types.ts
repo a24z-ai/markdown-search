@@ -1,5 +1,13 @@
 // Chunk/Block types
-export type ChunkType = 'code' | 'mermaid' | 'table' | 'text' | 'image' | 'link' | 'heading' | 'list';
+export type ChunkType =
+  | 'code'
+  | 'mermaid'
+  | 'table'
+  | 'text'
+  | 'image'
+  | 'link'
+  | 'heading'
+  | 'list';
 
 // Document chunk/block interface
 export interface DocumentChunk {
@@ -42,13 +50,13 @@ export interface SearchableDocument {
   sectionLevel?: number; // Heading level for sections
   language?: string; // For code blocks
   diagramType?: string; // For mermaid diagrams
-  
+
   // Context (for sections)
   totalSectionsInFile?: number;
   previousSectionTitle?: string;
   nextSectionTitle?: string;
 
-  // Metadata
+  // Metadata - can include custom fields like repository, owner, etc.
   metadata?: Record<string, MetadataValue>;
 
   // Search-specific
@@ -95,6 +103,7 @@ export interface SearchResult extends SearchableDocument {
   matches: MatchInfo[]; // Match details
   highlights?: string; // Highlighted content
   breadcrumb?: string[]; // Path to result (e.g., ["File", "Section 3", "Code Block"])
+  // metadata is inherited from SearchableDocument and preserved in results
 }
 
 export interface MatchInfo {
@@ -133,6 +142,9 @@ export interface SearchOptions {
   // Sort options
   sortBy?: 'relevance' | 'date' | 'title';
   sortOrder?: 'asc' | 'desc';
+
+  // Filter results by metadata fields
+  filters?: Record<string, MetadataValue | MetadataValue[]>;
 }
 
 // Match detail for highlighting

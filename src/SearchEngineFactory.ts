@@ -63,7 +63,7 @@ export class SearchEngineFactory {
    */
   static getAvailable(): SearchEngineType[] {
     const allTypes: SearchEngineType[] = ['flexsearch', 'fuse', 'lunr', 'minisearch', 'orama'];
-    return allTypes.filter(type => this.isAvailable(type));
+    return allTypes.filter((type) => this.isAvailable(type));
   }
 
   /**

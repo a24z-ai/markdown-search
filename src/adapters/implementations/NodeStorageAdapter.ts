@@ -21,7 +21,7 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
   private async ensureStorageDirectory(): Promise<void> {
     try {
       await mkdir(this.storagePath, { recursive: true });
-    } catch (error) {
+    } catch {
       // Directory might already exist, ignore error
     }
   }
@@ -39,7 +39,7 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
   async saveIndex(key: string, data: SerializedIndexData): Promise<void> {
     await this.ensureStorageDirectory();
     const filePath = this.getIndexPath(key);
-    
+
     // Use Bun's fast write operation
     if (typeof Bun !== 'undefined' && Bun.write) {
       await Bun.write(filePath, JSON.stringify(data, null, 2));
@@ -56,7 +56,7 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
   async loadIndex(key: string): Promise<SerializedIndexData | null> {
     try {
       const filePath = this.getIndexPath(key);
-      
+
       // Use Bun's file reading
       if (typeof Bun !== 'undefined' && Bun.file) {
         const file = Bun.file(filePath);
@@ -66,7 +66,7 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
         }
         return null;
       }
-      
+
       // Fallback to Node.js fs
       const { readFile } = await import('fs/promises');
       try {
@@ -90,7 +90,7 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
   async deleteIndex(key: string): Promise<void> {
     try {
       const filePath = this.getIndexPath(key);
-      
+
       // Use Node.js fs for deletion
       const { unlink } = await import('fs/promises');
       await unlink(filePath);
@@ -108,13 +108,13 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
   async hasIndex(key: string): Promise<boolean> {
     try {
       const filePath = this.getIndexPath(key);
-      
+
       // Use Bun's file check
       if (typeof Bun !== 'undefined' && Bun.file) {
         const file = Bun.file(filePath);
         return await file.exists();
       }
-      
+
       // Fallback to Node.js fs
       const { access } = await import('fs/promises');
       try {
@@ -136,13 +136,13 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
     if (!data || typeof data !== 'object') {
       return null;
     }
-    
+
     // Extract metadata from the saved data
     const indexData = data as any;
     if (indexData.metadata) {
       return indexData.metadata;
     }
-    
+
     // Try to construct metadata from available fields
     if (indexData.version || indexData.createdAt || indexData.stats) {
       return {
@@ -156,7 +156,7 @@ export class NodeStorageAdapter implements SearchStorageAdapter {
         },
       };
     }
-    
+
     return null;
   }
 }

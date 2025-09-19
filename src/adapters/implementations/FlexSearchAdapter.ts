@@ -5,7 +5,13 @@
 
 import * as FlexSearch from 'flexsearch';
 
-import { SearchableDocument, SearchResult, SearchOptions, MatchInfo } from '../../types';
+import {
+  SearchableDocument,
+  SearchResult,
+  SearchOptions,
+  MatchInfo,
+  DocumentType,
+} from '../../types';
 import { SearchEngineAdapter, SearchEngineOptions } from '../types';
 
 // Debug logging utility - set to true to enable verbose FlexSearch logs
@@ -71,9 +77,25 @@ interface FlexSearchMatch {
 // Use the actual FlexSearch Document type
 type FlexSearchIndex = FlexSearch.Document<DocumentIndex, string>;
 
+// Lightweight metadata to store instead of full documents
+interface DocumentMetadata {
+  id: string;
+  type: DocumentType;
+  title?: string;
+  fileName: string;
+  filePath?: string;
+  fileUri?: string;
+  tags?: string[];
+  sectionIndex?: number;
+  sectionNumber?: number;
+  parentId?: string;
+  metadata?: Record<string, any>; // Custom metadata from documents
+  // Don't store content - FlexSearch handles that
+}
+
 export class FlexSearchAdapter implements SearchEngineAdapter {
   private index!: FlexSearchIndex; // FlexSearch document index
-  private documents: Map<string, SearchableDocument> = new Map();
+  private documents: Map<string, DocumentMetadata> = new Map(); // Store only metadata, not content
   private options: FlexSearchOptions;
   private indexCleared: boolean = false; // Track if index has been cleared for this session
   private sessionId: string = Math.random().toString(36).substring(7); // Debug session tracking
@@ -148,13 +170,28 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
     for (const doc of documents) {
       debugLog(`[FlexSearchAdapter] Processing document: ${doc.id} - ${doc.title || doc.fileName}`);
 
-      this.documents.set(doc.id, doc);
-      debugLog(`[FlexSearchAdapter] Stored in documents Map with ID: "${doc.id}"`);
+      // Store only lightweight metadata, not the full document with content
+      const metadata: DocumentMetadata = {
+        id: doc.id,
+        type: doc.type,
+        title: doc.title,
+        fileName: doc.fileName,
+        filePath: doc.filePath,
+        fileUri: doc.fileUri,
+        tags: doc.tags,
+        sectionIndex: doc.sectionIndex,
+        sectionNumber: doc.sectionNumber,
+        parentId: doc.parentId,
+        metadata: doc.metadata, // Preserve custom metadata
+      };
 
-      // Prepare document for FlexSearch
+      this.documents.set(doc.id, metadata);
+      debugLog(`[FlexSearchAdapter] Stored metadata in documents Map with ID: "${doc.id}"`);
+
+      // Prepare document for FlexSearch (this includes content for indexing)
       const indexDoc: DocumentIndex = {
         id: doc.id,
-        content: doc.content,
+        content: doc.content, // FlexSearch needs content for indexing
         title: doc.title || '',
         type: doc.type,
         fileUri: doc.fileUri,
@@ -235,11 +272,19 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
     for (const field of fields) {
       debugLog(`[FlexSearchAdapter] Searching field: ${field}`);
 
-      const fieldResults = this.index.search(query, {
-        ...searchOptions,
+      // FlexSearch Document search with field-specific options
+      const searchOpts: any = {
+        limit: searchOptions.limit,
         index: field,
         suggest: true, // Enable suggestions for fuzzy matching
-      });
+      };
+
+      // Add where clause if we have type filtering
+      if (searchOptions.where) {
+        searchOpts.where = searchOptions.where;
+      }
+
+      const fieldResults = this.index.search(query, searchOpts);
 
       debugLog(`[FlexSearchAdapter] Field "${field}" returned:`, fieldResults);
       debugLog(`[FlexSearchAdapter] Field "${field}" results type:`, typeof fieldResults);
@@ -271,10 +316,22 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
               }
             } else if ('result' in result && Array.isArray(result.result)) {
               // Field-specific result: { field: string, result: string[] }
-              // Take the first result ID from the array
-              if (result.result.length > 0) {
-                resultId = String(result.result[0]);
+              // Process ALL result IDs from the array
+              for (const id of result.result) {
+                const idStr = String(id);
+                const existingResult = results.get(idStr);
+                if (existingResult) {
+                  // Combine scores and matches from multiple fields
+                  existingResult.score = Math.max(existingResult.score, resultScore);
+                  existingResult.matches.push({ field, result: id });
+                } else {
+                  results.set(idStr, {
+                    score: resultScore,
+                    matches: [{ field, result: id }],
+                  });
+                }
               }
+              continue; // Skip the single-result processing below
             } else {
               // Unknown object structure - log it for debugging
               debugLog(
@@ -343,33 +400,90 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
 
       debugLog(`[FlexSearchAdapter] Processing document ${id}: ${doc.title || doc.fileName}`);
 
-      // Extract match information
+      // Apply metadata filters if specified
+      if (options?.filters && doc.metadata) {
+        let matchesFilters = true;
+        for (const [key, value] of Object.entries(options.filters)) {
+          const metadataValue = doc.metadata[key];
+
+          // Handle array values (e.g., repository: ["app1", "app2"])
+          if (Array.isArray(value)) {
+            if (!value.includes(metadataValue)) {
+              matchesFilters = false;
+              break;
+            }
+          } else if (metadataValue !== value) {
+            matchesFilters = false;
+            break;
+          }
+        }
+
+        if (!matchesFilters) {
+          continue; // Skip this result as it doesn't match filters
+        }
+      } else if (options?.filters && !doc.metadata) {
+        // Skip documents without metadata when filters are specified
+        continue;
+      }
+
+      // Extract match information - without needing full content
       const matchInfos: MatchInfo[] = [];
 
-      for (const { field } of matches) {
-        // FlexSearch doesn't provide detailed match info by default
-        // We'll create a simple match based on the field content
-        const fieldContent =
-          field === 'content' ? doc.content : field === 'title' ? doc.title || '' : doc.fileName;
+      // Create a snippet instead of using full content
+      let contentSnippet = '';
 
-        const matchInfo = this.createMatchInfo(query, fieldContent, field);
-        if (matchInfo) {
-          matchInfos.push(matchInfo);
+      for (const { field } of matches) {
+        // For title and fileName, we have the data
+        if (field === 'title' || field === 'fileName') {
+          const fieldContent = field === 'title' ? doc.title || '' : doc.fileName;
+          const matchInfo = this.createMatchInfo(query, fieldContent, field);
+          if (matchInfo) {
+            matchInfos.push(matchInfo);
+          }
+        } else if (field === 'content') {
+          // For content matches, create a placeholder match
+          const contentMatch: MatchInfo = {
+            field: 'content',
+            matchedText: query,
+            context: {
+              before: '...',
+              after: '...',
+            },
+            position: { start: 0, end: query.length },
+          };
+          matchInfos.push(contentMatch);
+          contentSnippet = `[Content contains "${query}" - load full document to view]`;
         }
       }
 
-      searchResults.push({
-        ...doc,
+      // Build search result with metadata only (no full content)
+      const result: SearchResult = {
+        id: doc.id,
+        type: doc.type,
         score,
+        // Return empty content or snippet - consumer should load full content if needed
+        content: contentSnippet || '',
+        title: doc.title,
+        fileName: doc.fileName,
+        filePath: doc.filePath || '',
+        fileUri: doc.fileUri || '',
+        tags: doc.tags,
+        parentId: doc.parentId,
+        sectionIndex: doc.sectionIndex,
+        sectionNumber: doc.sectionNumber,
+        metadata: doc.metadata, // Include custom metadata in results
         matches: matchInfos,
-        highlights: this.createHighlights(doc.content, query),
-      });
+        // Return empty string for highlights when content not loaded
+        highlights: '',
+      };
+
+      searchResults.push(result);
     }
 
     debugLog(`[FlexSearchAdapter] Final search results count: ${searchResults.length}`);
     debugLog(
       `[FlexSearchAdapter] Sample results:`,
-      searchResults.slice(0, 2).map(r => ({ id: r.id, title: r.title, score: r.score })),
+      searchResults.slice(0, 2).map((r) => ({ id: r.id, title: r.title, score: r.score })),
     );
 
     // Sort by score
@@ -388,8 +502,31 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
       throw new Error('Search engine not initialized');
     }
 
-    // FlexSearch has export functionality that requires a callback
-    debugLog('Exporting index...');
+    debugLog('Exporting index metadata only (skipping FlexSearch index data to prevent OOM)...');
+
+    // For large indices, we'll only save metadata and skip the FlexSearch export
+    // The index will be rebuilt on next startup from the file system
+    const documentCount = this.documents.size;
+
+    if (documentCount > 1000) {
+      debugLog(
+        `[FlexSearchAdapter] Large index detected (${documentCount} documents), exporting metadata only`,
+      );
+
+      return {
+        // Don't export the full FlexSearch index data - it's too large
+        index: null,
+        metadata: Array.from(this.documents.entries()),
+        exportMetadata: {
+          totalDocuments: documentCount,
+          exportType: 'metadata-only',
+          note: 'Full index data skipped to prevent OOM - will rebuild on next startup',
+        },
+      };
+    }
+
+    // For smaller indices, do the full export
+    debugLog('Small index detected, doing full export...');
 
     return new Promise((resolve, reject) => {
       const exportedData: unknown[] = [];
@@ -399,12 +536,16 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
           exportedData.push({ key, data });
         });
 
-        // Export is synchronous via callback, so we can resolve immediately
-        debugLog('Index exported...');
+        debugLog(`[FlexSearchAdapter] Full index exported with ${exportedData.length} chunks`);
 
         resolve({
           index: exportedData,
-          documents: Array.from(this.documents.entries()),
+          metadata: Array.from(this.documents.entries()),
+          exportMetadata: {
+            totalDocuments: documentCount,
+            exportType: 'full',
+            totalChunks: exportedData.length,
+          },
         });
       } catch (error) {
         reject(error);
@@ -419,7 +560,41 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
 
     // Type guard and import the index data
     if (this.isValidImportData(data)) {
+      // Check if this is a metadata-only export (large index that skipped FlexSearch data)
+      const exportMeta = (data as any).exportMetadata;
+      if (exportMeta?.exportType === 'metadata-only') {
+        debugLog(
+          `[FlexSearchAdapter] Importing metadata-only index (${exportMeta.totalDocuments} documents)`,
+        );
+        debugLog(`[FlexSearchAdapter] Note: ${exportMeta.note}`);
+
+        // Only restore metadata - FlexSearch index will need to be rebuilt
+        const metadataArray = data.metadata;
+        if (metadataArray) {
+          this.documents.clear();
+          for (const [id, docOrMeta] of metadataArray) {
+            const metadata: DocumentMetadata = {
+              id: docOrMeta.id,
+              type: docOrMeta.type,
+              title: docOrMeta.title,
+              fileName: docOrMeta.fileName,
+              filePath: docOrMeta.filePath,
+              fileUri: docOrMeta.fileUri,
+              tags: docOrMeta.tags,
+              sectionIndex: docOrMeta.sectionIndex,
+              sectionNumber: docOrMeta.sectionNumber,
+              parentId: docOrMeta.parentId,
+              metadata: docOrMeta.metadata,
+            };
+            this.documents.set(id, metadata);
+          }
+        }
+        return; // Skip FlexSearch import for metadata-only exports
+      }
+
+      // Full export - import both FlexSearch index and metadata
       if (data.index && Array.isArray(data.index)) {
+        debugLog(`[FlexSearchAdapter] Importing full index with ${data.index.length} chunks`);
         // Handle the key-value pairs from export
         for (const item of data.index) {
           if (item.key && item.data !== undefined) {
@@ -429,10 +604,26 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
       }
 
       // Restore documents map
-      if (data.documents) {
+      // Support both old format (documents) and new format (metadata)
+      const metadataArray = data.metadata || data.documents;
+      if (metadataArray) {
         this.documents.clear();
-        for (const [id, doc] of data.documents) {
-          this.documents.set(id, doc);
+        for (const [id, docOrMeta] of metadataArray) {
+          // If it's old format with content, extract only metadata
+          const metadata: DocumentMetadata = {
+            id: docOrMeta.id,
+            type: docOrMeta.type,
+            title: docOrMeta.title,
+            fileName: docOrMeta.fileName,
+            filePath: docOrMeta.filePath,
+            fileUri: docOrMeta.fileUri,
+            tags: docOrMeta.tags,
+            sectionIndex: docOrMeta.sectionIndex,
+            sectionNumber: docOrMeta.sectionNumber,
+            parentId: docOrMeta.parentId,
+            metadata: docOrMeta.metadata,
+          };
+          this.documents.set(id, metadata);
         }
       }
     }
@@ -466,6 +657,37 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
     debugLog(`${logPrefix} Previous indexCleared status: ${this.indexCleared}`);
     this.indexCleared = false;
     debugLog(`${logPrefix} Reset indexCleared to: ${this.indexCleared}`);
+  }
+
+  /**
+   * Get all documents from the index
+   */
+  async getAllDocuments(): Promise<SearchResult[]> {
+    const results: SearchResult[] = [];
+
+    // Simply iterate over all documents we have stored
+    for (const [, doc] of this.documents.entries()) {
+      const result: SearchResult = {
+        id: doc.id,
+        type: doc.type,
+        score: 1, // No score for direct retrieval
+        content: '', // No content stored in metadata
+        title: doc.title,
+        fileName: doc.fileName,
+        filePath: doc.filePath || '',
+        fileUri: doc.fileUri || '',
+        tags: doc.tags,
+        parentId: doc.parentId,
+        sectionIndex: doc.sectionIndex,
+        sectionNumber: doc.sectionNumber,
+        metadata: doc.metadata,
+        matches: [],
+        highlights: '',
+      };
+      results.push(result);
+    }
+
+    return results;
   }
 
   /**
@@ -520,7 +742,14 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
 
   /**
    * Create highlighted content snippet
+   * TODO: This needs to be reimplemented to work with on-demand content loading.
+   * Options:
+   * 1. Load snippet from file around match position
+   * 2. Store small context windows during indexing
+   * 3. Use FlexSearch's built-in context feature
+   * For now, returning empty string to avoid memory issues.
    */
+  // @ts-ignore - Keeping for future implementation
   private createHighlights(content: string, query: string): string {
     const lowerContent = content.toLowerCase();
     const lowerQuery = query.toLowerCase();
@@ -550,12 +779,14 @@ export class FlexSearchAdapter implements SearchEngineAdapter {
   private isValidImportData(data: unknown): data is {
     index?: Array<{ key: string; data: unknown }>;
     documents?: Array<[string, SearchableDocument]>;
+    metadata?: Array<[string, DocumentMetadata]>;
   } {
     return (
       typeof data === 'object' &&
       data !== null &&
       (!('index' in data) || Array.isArray((data as { index?: unknown }).index)) &&
-      (!('documents' in data) || Array.isArray((data as { documents?: unknown }).documents))
+      (!('documents' in data) || Array.isArray((data as { documents?: unknown }).documents)) &&
+      (!('metadata' in data) || Array.isArray((data as { metadata?: unknown }).metadata))
     );
   }
 }

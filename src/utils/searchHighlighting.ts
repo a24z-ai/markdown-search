@@ -18,7 +18,7 @@ export function highlightSearchMatches(content: string, matches: MatchDetail[]):
   // Apply highlights
   let highlightedContent = content;
 
-  nonOverlappingMatches.forEach(match => {
+  nonOverlappingMatches.forEach((match) => {
     const before = highlightedContent.substring(0, match.position.start);
     const after = highlightedContent.substring(match.position.end);
     const highlighted = `<mark class="search-highlight search-term-${sanitizeClassName(match.searchTerm)}">${match.matchedText}</mark>`;
@@ -39,7 +39,7 @@ function removeOverlappingMatches(matches: MatchDetail[]): MatchDetail[] {
   // Process matches in order (already sorted by position)
   for (const match of matches) {
     const overlaps = usedRanges.some(
-      range =>
+      (range) =>
         (match.position.start >= range.start && match.position.start < range.end) ||
         (match.position.end > range.start && match.position.end <= range.end) ||
         (match.position.start <= range.start && match.position.end >= range.end),
@@ -135,7 +135,7 @@ export function highlightCodeMatches(
 
   const sortedMatches = [...matches].sort((a, b) => b.position.start - a.position.start);
 
-  sortedMatches.forEach(match => {
+  sortedMatches.forEach((match) => {
     const before = highlightedCode.substring(0, match.position.start);
     const after = highlightedCode.substring(match.position.end);
     const highlighted = `<span class="search-match-in-code">${match.matchedText}</span>`;
