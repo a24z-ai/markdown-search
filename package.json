@@ -1,6 +1,6 @@
 {
   "name": "@a24z/markdown-search",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "High-performance full-text search for markdown documents",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
