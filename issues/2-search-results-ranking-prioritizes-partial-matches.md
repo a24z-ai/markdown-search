@@ -4,7 +4,7 @@
 
 **Status:** open
 
-**Labels:** bug, ranking
+**Labels:** bug, ranking, approved
 
 
 [View on GitHub](https://github.com/a24z-ai/markdown-search/issues/2)
